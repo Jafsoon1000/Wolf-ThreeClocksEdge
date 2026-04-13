@@ -1,0 +1,652 @@
+// ============================================================
+//  MSNR - Malaysian Support & Resistance  |  Pine Script v5
+//  ============================================================
+//
+//  THE MSNR STORYLINE — This is the most important concept.
+//
+//  MSNR is not just about drawing zones. It's about reading
+//  the MARKET NARRATIVE — the sequence of events that price
+//  creates as it moves. Every zone only matters when you
+//  understand the STORY the market is telling.
+//
+//  THE STORY UNFOLDS IN THIS ORDER:
+//  ─────────────────────────────────
+//  Step 1: Identify Market Structure (HH/HL or LH/LL)
+//          → This tells you the DIRECTION of the story
+//
+//  Step 2: Identify BOS (Break of Structure)
+//          → Price breaks a swing high/low = story CONTINUES
+//          → This confirms trend direction
+//
+//  Step 3: Identify CHOCH (Change of Character)
+//          → Price breaks structure in the OPPOSITE direction
+//          → This is the FIRST SIGN the story is changing
+//          → Not a reversal confirmation — it is a WARNING
+//
+//  Step 4: Identify Liquidity Sweep / Raid
+//          → Price wicks BELOW a swing low (or above swing high)
+//          → Then closes BACK inside → Smart money trapped retail
+//          → This is often the CATALYST for the real move
+//
+//  Step 5: Look at Premium / Discount
+//          → Above equilibrium = PREMIUM (too expensive to buy)
+//          → Below equilibrium = DISCOUNT (cheap enough to buy)
+//          → Always BUY from Discount zones, SELL from Premium zones
+//
+//  Step 6: Find your S&R Zone WITHIN the story context
+//          → A fresh support zone in a DISCOUNT area after a CHOCH
+//            = highest probability LONG setup
+//          → A fresh resistance zone in a PREMIUM area after a CHOCH
+//            = highest probability SHORT setup
+//
+//  THE FULL STORYLINE EXAMPLE (Bullish):
+//  ──────────────────────────────────────
+//  1. Market was in downtrend (LH + LL sequence)
+//  2. Price sweeps BELOW a major swing low (Liquidity Raid)
+//  3. Price closes back ABOVE that low (Raid confirmed)
+//  4. Price makes a BOS to the upside (CHOCH printed)
+//  5. Price pulls back into DISCOUNT zone / Fresh Support
+//  6. Rejection candle forms at the Support zone
+//  7. ENTER LONG → Target next resistance / Premium zone
+//
+// ============================================================
+
+//@version=5
+indicator("MSNR - Malaysian Support & Resistance (Full Storyline)", shorttitle="MSNR", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ─── INPUTS ──────────────────────────────────────────────────
+
+i_swing_len   = input.int(10,    "Swing Lookback (bars each side)", minval=3, maxval=50,  group="Zone Detection")
+i_use_body    = input.bool(true, "Use Candle BODY (not wicks)",     group="Zone Detection")
+i_atr_mult    = input.float(0.25,"Zone Thickness (ATR x)",          minval=0.05, maxval=2.0, step=0.05, group="Zone Detection")
+i_max_zones   = input.int(6,    "Max Zones Per Side",               minval=1, maxval=10,  group="Zone Detection")
+i_extend_bars = input.int(60,   "Extend Zones Right (bars)",        minval=0, maxval=300, group="Zone Detection")
+
+i_show_struct = input.bool(true,  "Show Structure Labels (HH/HL/LH/LL)",   group="Storyline")
+i_show_bos    = input.bool(true,  "Show BOS (Break of Structure)",          group="Storyline")
+i_show_choch  = input.bool(true,  "Show CHOCH (Change of Character)",       group="Storyline")
+i_show_sweep  = input.bool(true,  "Show Liquidity Sweep / Raid",            group="Storyline")
+i_show_pd     = input.bool(true,  "Show Premium / Discount Levels",         group="Storyline")
+i_show_story  = input.bool(true,  "Show Story Label (full narrative)",      group="Storyline")
+
+i_col_fresh_r = input.color(color.new(color.red,   70), "Fresh Resistance",  group="Colors")
+i_col_fresh_s = input.color(color.new(color.green, 70), "Fresh Support",     group="Colors")
+i_col_test_r  = input.color(color.new(color.orange,82), "Tested Resistance", group="Colors")
+i_col_test_s  = input.color(color.new(color.blue,  82), "Tested Support",    group="Colors")
+i_col_exh_r   = input.color(color.new(color.maroon,88), "Exhausted Resistance", group="Colors")
+i_col_exh_s   = input.color(color.new(color.navy,  88), "Exhausted Support",    group="Colors")
+i_col_broken  = input.color(color.new(color.gray,  92), "Broken Zone",       group="Colors")
+i_col_bos     = input.color(color.new(color.aqua,  20), "BOS Line Color",    group="Colors")
+i_col_choch   = input.color(color.new(color.fuchsia,20),"CHOCH Line Color",  group="Colors")
+i_col_sweep   = input.color(color.new(color.yellow, 20),"Sweep Color",       group="Colors")
+i_border_w    = input.int(1,    "Zone Border Width", minval=1, maxval=3, group="Colors")
+
+i_show_htf    = input.bool(true,   "Show Higher-Timeframe S&R",    group="Multi-Timeframe")
+i_htf         = input.timeframe("D","Higher Timeframe",            group="Multi-Timeframe")
+i_htf_width   = input.int(2,       "HTF Line Width", minval=1, maxval=4, group="Multi-Timeframe")
+i_show_conf   = input.bool(true,   "Highlight HTF Confluence",     group="Multi-Timeframe")
+
+i_show_brk    = input.bool(true,  "Show Break Signals",            group="Signals")
+i_show_rej    = input.bool(true,  "Show Rejection Signals",        group="Signals")
+i_alert_brk   = input.bool(true,  "Alert on Zone Break",           group="Signals")
+i_alert_ret   = input.bool(true,  "Alert on Break-and-Retest",     group="Signals")
+i_alert_bos   = input.bool(true,  "Alert on BOS",                  group="Signals")
+i_alert_choch = input.bool(true,  "Alert on CHOCH",                group="Signals")
+i_alert_sweep = input.bool(true,  "Alert on Liquidity Sweep",      group="Signals")
+
+i_show_labels = input.bool(true,  "Show Zone Labels",              group="Display")
+i_show_touch  = input.bool(true,  "Show Touch Count in Zone",      group="Display")
+i_show_table  = input.bool(true,  "Show Dashboard Table",          group="Display")
+i_show_bias   = input.bool(true,  "Color Background by Context",   group="Display")
+
+// ─── HELPERS ────────────────────────────────────────────────
+
+body_high() => math.max(open, close)
+body_low()  => math.min(open, close)
+
+zone_color(t, is_res, broken) =>
+    if broken
+        i_col_broken
+    else if is_res
+        t >= 4 ? i_col_exh_r : t >= 2 ? i_col_test_r : i_col_fresh_r
+    else
+        t >= 4 ? i_col_exh_s : t >= 2 ? i_col_test_s : i_col_fresh_s
+
+status_str(t) =>
+    t >= 4 ? "EXHAUSTED" : t >= 2 ? "TESTED" : "FRESH"
+
+// ─── PIVOT DETECTION ────────────────────────────────────────
+
+pivot_src_h = i_use_body ? body_high() : high
+pivot_src_l = i_use_body ? body_low()  : low
+
+ph = ta.pivothigh(pivot_src_h, i_swing_len, i_swing_len)
+pl = ta.pivotlow(pivot_src_l,  i_swing_len, i_swing_len)
+
+// ─── ATR ────────────────────────────────────────────────────
+
+atr14     = ta.atr(14)
+zone_half = atr14 * i_atr_mult / 2.0
+
+// ═══════════════════════════════════════════════════════════
+//  THE STORYLINE ENGINE
+//  ─────────────────────────────────────────────────────────
+//  This section tracks the market narrative:
+//  - Previous swing highs and lows
+//  - Structure type (HH/HL/LH/LL)
+//  - BOS and CHOCH events
+//  - Liquidity raids
+//  - Premium / Discount zones
+// ═══════════════════════════════════════════════════════════
+
+// ─── TRACK LAST 2 SWING HIGHS & LOWS ────────────────────────
+// We need at least 2 consecutive swings to define structure
+
+var float last_ph1  = na   // most recent confirmed pivot high
+var float last_ph2  = na   // second most recent pivot high
+var float last_pl1  = na   // most recent confirmed pivot low
+var float last_pl2  = na   // second most recent pivot low
+
+var int   last_ph1_bar = na
+var int   last_ph2_bar = na
+var int   last_pl1_bar = na
+var int   last_pl2_bar = na
+
+// Rolling update of tracked pivots
+if not na(ph)
+    last_ph2     := last_ph1
+    last_ph2_bar := last_ph1_bar
+    last_ph1     := ph
+    last_ph1_bar := bar_index - i_swing_len
+
+if not na(pl)
+    last_pl2     := last_pl1
+    last_pl2_bar := last_pl1_bar
+    last_pl1     := pl
+    last_pl1_bar := bar_index - i_swing_len
+
+// ─── STRUCTURE CLASSIFICATION ────────────────────────────────
+// Compare current swing to previous swing of same type
+
+struct_hh   = not na(ph) and not na(last_ph2) and ph > last_ph2   // Higher High
+struct_lh   = not na(ph) and not na(last_ph2) and ph < last_ph2   // Lower High
+struct_hl   = not na(pl) and not na(last_pl2) and pl > last_pl2   // Higher Low
+struct_ll   = not na(pl) and not na(last_pl2) and pl < last_pl2   // Lower Low
+
+// ─── MARKET TREND STATE ──────────────────────────────────────
+// Track if we are in a bullish or bearish structure
+
+var int  trend       = 0     // 1 = bullish, -1 = bearish, 0 = undefined
+var bool was_bullish = false
+var bool was_bearish = false
+
+if struct_hh and struct_hl
+    trend := 1
+if struct_lh and struct_ll
+    trend := -1
+
+was_bullish := trend[1] == 1
+was_bearish := trend[1] == -1
+
+// ─── STRUCTURE LABELS: HH / HL / LH / LL ────────────────────
+
+if i_show_struct
+    if struct_hh
+        label.new(bar_index - i_swing_len, ph, "HH", color=color.new(color.lime, 20), textcolor=color.black, style=label.style_label_down, size=size.tiny)
+    if struct_lh
+        label.new(bar_index - i_swing_len, ph, "LH", color=color.new(color.red, 20), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if struct_hl
+        label.new(bar_index - i_swing_len, pl, "HL", color=color.new(color.lime, 20), textcolor=color.black, style=label.style_label_up, size=size.tiny)
+    if struct_ll
+        label.new(bar_index - i_swing_len, pl, "LL", color=color.new(color.red, 20), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+
+// ─── BOS — BREAK OF STRUCTURE ────────────────────────────────
+// BOS = price breaks a previous swing HIGH (bullish BOS)
+//        or breaks a previous swing LOW  (bearish BOS)
+// This CONFIRMS the trend is continuing
+
+var float bos_bull_level = na   // level of last bullish BOS
+var float bos_bear_level = na   // level of last bearish BOS
+var line  bos_line       = na
+
+bos_bull = not na(last_ph1) and close > last_ph1 and close[1] <= last_ph1 and trend == 1
+bos_bear = not na(last_pl1) and close < last_pl1 and close[1] >= last_pl1 and trend == -1
+
+if i_show_bos
+    if bos_bull
+        bos_line := line.new(last_ph1_bar, last_ph1, bar_index, last_ph1, color=i_col_bos, width=2, style=line.style_solid)
+        label.new(bar_index, last_ph1, "BOS", color=i_col_bos, textcolor=color.black, style=label.style_label_left, size=size.small)
+        bos_bull_level := last_ph1
+    if bos_bear
+        bos_line := line.new(last_pl1_bar, last_pl1, bar_index, last_pl1, color=i_col_bos, width=2, style=line.style_solid)
+        label.new(bar_index, last_pl1, "BOS", color=i_col_bos, textcolor=color.black, style=label.style_label_left, size=size.small)
+        bos_bear_level := last_pl1
+
+if i_alert_bos and bos_bull
+    alert("MSNR BOS: Bullish Break of Structure on " + syminfo.ticker + " (" + timeframe.period + ")", alert.freq_once_per_bar)
+if i_alert_bos and bos_bear
+    alert("MSNR BOS: Bearish Break of Structure on " + syminfo.ticker + " (" + timeframe.period + ")", alert.freq_once_per_bar)
+
+// ─── CHOCH — CHANGE OF CHARACTER ─────────────────────────────
+// CHOCH = price breaks structure in the OPPOSITE direction to trend
+// Bullish CHOCH: was bearish trend, price breaks ABOVE a recent swing high
+// Bearish CHOCH: was bullish trend, price breaks BELOW a recent swing low
+// This is the FIRST SIGNAL that the story is changing — NOT reversal confirmation
+
+choch_bull = not na(last_ph1) and was_bearish and close > last_ph1 and close[1] <= last_ph1
+choch_bear = not na(last_pl1) and was_bullish and close < last_pl1 and close[1] >= last_pl1
+
+if i_show_choch
+    if choch_bull
+        line.new(last_ph1_bar, last_ph1, bar_index, last_ph1, color=i_col_choch, width=2, style=line.style_dashed)
+        label.new(bar_index, last_ph1, "CHOCH", color=i_col_choch, textcolor=color.black, style=label.style_label_left, size=size.small)
+        trend := 1
+    if choch_bear
+        line.new(last_pl1_bar, last_pl1, bar_index, last_pl1, color=i_col_choch, width=2, style=line.style_dashed)
+        label.new(bar_index, last_pl1, "CHOCH", color=i_col_choch, textcolor=color.black, style=label.style_label_left, size=size.small)
+        trend := -1
+
+if i_alert_choch and choch_bull
+    alert("MSNR CHOCH: Bullish Change of Character on " + syminfo.ticker + " - Trend may be reversing UP", alert.freq_once_per_bar)
+if i_alert_choch and choch_bear
+    alert("MSNR CHOCH: Bearish Change of Character on " + syminfo.ticker + " - Trend may be reversing DOWN", alert.freq_once_per_bar)
+
+// ─── LIQUIDITY SWEEP / RAID ───────────────────────────────────
+// A sweep is when price WICKS below a swing low (or above a swing high)
+// but then CLOSES back inside the range.
+// This is SMART MONEY grabbing retail stops before the real move.
+// After a sweep → watch for reversal.
+//
+// Bullish Sweep: wick below last_pl1, close back above it
+// Bearish Sweep: wick above last_ph1, close back below it
+
+sweep_bull = not na(last_pl1) and low < last_pl1 and close > last_pl1   // wick below, close above
+sweep_bear = not na(last_ph1) and high > last_ph1 and close < last_ph1  // wick above, close below
+
+if i_show_sweep
+    if sweep_bull
+        label.new(bar_index, low, "SWEEP", color=i_col_sweep, textcolor=color.black, style=label.style_label_up, size=size.small)
+        line.new(bar_index, low, bar_index, last_pl1, color=i_col_sweep, width=1, style=line.style_dotted)
+    if sweep_bear
+        label.new(bar_index, high, "SWEEP", color=i_col_sweep, textcolor=color.black, style=label.style_label_down, size=size.small)
+        line.new(bar_index, high, bar_index, last_ph1, color=i_col_sweep, width=1, style=line.style_dotted)
+
+if i_alert_sweep and sweep_bull
+    alert("MSNR SWEEP: Bullish Liquidity Raid below swing low on " + syminfo.ticker + " - Watch for reversal UP", alert.freq_once_per_bar)
+if i_alert_sweep and sweep_bear
+    alert("MSNR SWEEP: Bearish Liquidity Raid above swing high on " + syminfo.ticker + " - Watch for reversal DOWN", alert.freq_once_per_bar)
+
+// ─── PREMIUM / DISCOUNT ───────────────────────────────────────
+// The range between last swing high and last swing low is the "pool"
+// Equilibrium (EQ) = midpoint of that range
+// PREMIUM  = above EQ → price is expensive → look to SELL
+// DISCOUNT = below EQ → price is cheap     → look to BUY
+// This filters out low-probability setups
+
+var line  eq_line   = na
+var label eq_lbl    = na
+var label pd_lbl    = na
+
+if i_show_pd and barstate.islast and not na(last_ph1) and not na(last_pl1)
+    eq_price = (last_ph1 + last_pl1) / 2.0
+    line.delete(eq_line)
+    label.delete(eq_lbl)
+    label.delete(pd_lbl)
+    eq_line := line.new(bar_index - 100, eq_price, bar_index + i_extend_bars, eq_price, color=color.new(color.white, 50), width=1, style=line.style_dotted)
+    eq_lbl  := label.new(bar_index + i_extend_bars, eq_price, "EQ " + str.tostring(eq_price, format.mintick), color=color.new(color.white, 60), textcolor=color.white, style=label.style_label_left, size=size.tiny)
+    in_premium  = close > eq_price
+    in_discount = close < eq_price
+    ctx_str  = in_premium ? "PREMIUM - Look to SELL" : "DISCOUNT - Look to BUY"
+    ctx_col  = in_premium ? color.new(color.red, 30) : color.new(color.lime, 30)
+    pd_lbl  := label.new(bar_index, close, ctx_str, color=ctx_col, textcolor=color.white, style=label.style_label_left, size=size.small)
+
+// ─── STORY NARRATIVE LABEL ────────────────────────────────────
+// This prints a human-readable summary of what the story looks like
+// so the trader can immediately understand the market context
+
+var label story_lbl = na
+
+story_narrative() =>
+    str1 = trend == 1 ? "BULLISH STRUCTURE (HH+HL)" : trend == -1 ? "BEARISH STRUCTURE (LH+LL)" : "STRUCTURE: FORMING"
+    str2 = choch_bull ? " | CHOCH UP (reversal signal)" : choch_bear ? " | CHOCH DOWN (reversal signal)" : ""
+    str3 = bos_bull   ? " | BOS UP (continuation)" : bos_bear ? " | BOS DOWN (continuation)" : ""
+    str4 = sweep_bull ? " | SWEEP Low (bullish raid)" : sweep_bear ? " | SWEEP High (bearish raid)" : ""
+    str1 + str2 + str3 + str4
+
+if i_show_story and barstate.islast
+    label.delete(story_lbl)
+    story_lbl := label.new(bar_index, high * 1.001, story_narrative(), color=color.new(color.black, 60), textcolor=color.white, style=label.style_label_left, size=size.tiny)
+
+// ─── ZONE STATE ARRAYS ──────────────────────────────────────
+
+var float[] r_tops    = array.new_float()
+var float[] r_bots    = array.new_float()
+var int[]   r_touches = array.new_int()
+var bool[]  r_broken  = array.new_bool()
+var box[]   r_boxes   = array.new_box()
+
+var float[] s_tops    = array.new_float()
+var float[] s_bots    = array.new_float()
+var int[]   s_touches = array.new_int()
+var bool[]  s_broken  = array.new_bool()
+var box[]   s_boxes   = array.new_box()
+
+// ─── ADD RESISTANCE ZONE ────────────────────────────────────
+
+if not na(ph)
+    zt = ph + zone_half
+    zb = ph - zone_half
+    zbar = bar_index - i_swing_len
+    is_dup = false
+    if array.size(r_tops) > 0
+        for i = 0 to array.size(r_tops) - 1
+            if math.abs(array.get(r_tops, i) - ph) < atr14 * 0.5
+                is_dup := true
+    if not is_dup
+        if array.size(r_boxes) >= i_max_zones
+            box.delete(array.shift(r_boxes))
+            array.shift(r_tops)
+            array.shift(r_bots)
+            array.shift(r_touches)
+            array.shift(r_broken)
+        txt = i_show_touch ? "R | 0 | FRESH" : ""
+        b = box.new(zbar, zt, bar_index + i_extend_bars, zb, border_color=color.new(color.red, 30), bgcolor=i_col_fresh_r, border_width=i_border_w, text=txt, text_color=color.white, text_size=size.tiny)
+        array.push(r_boxes, b)
+        array.push(r_tops, zt)
+        array.push(r_bots, zb)
+        array.push(r_touches, 0)
+        array.push(r_broken, false)
+        if i_show_labels
+            lbl_txt = "[ R ]  " + str.tostring(ph, format.mintick) + (struct_hh ? "  HH" : struct_lh ? "  LH" : "")
+            label.new(zbar, zt, lbl_txt, color=color.new(color.red, 20), textcolor=color.white, style=label.style_label_right, size=size.small)
+
+// ─── ADD SUPPORT ZONE ───────────────────────────────────────
+
+if not na(pl)
+    zt = pl + zone_half
+    zb = pl - zone_half
+    zbar = bar_index - i_swing_len
+    is_dup = false
+    if array.size(s_tops) > 0
+        for i = 0 to array.size(s_tops) - 1
+            if math.abs(array.get(s_tops, i) - pl) < atr14 * 0.5
+                is_dup := true
+    if not is_dup
+        if array.size(s_boxes) >= i_max_zones
+            box.delete(array.shift(s_boxes))
+            array.shift(s_tops)
+            array.shift(s_bots)
+            array.shift(s_touches)
+            array.shift(s_broken)
+        txt = i_show_touch ? "S | 0 | FRESH" : ""
+        b = box.new(zbar, zt, bar_index + i_extend_bars, zb, border_color=color.new(color.green, 30), bgcolor=i_col_fresh_s, border_width=i_border_w, text=txt, text_color=color.white, text_size=size.tiny)
+        array.push(s_boxes, b)
+        array.push(s_tops, zt)
+        array.push(s_bots, zb)
+        array.push(s_touches, 0)
+        array.push(s_broken, false)
+        if i_show_labels
+            lbl_txt = "[ S ]  " + str.tostring(pl, format.mintick) + (struct_hl ? "  HL" : struct_ll ? "  LL" : "")
+            label.new(zbar, zb, lbl_txt, color=color.new(color.green, 20), textcolor=color.white, style=label.style_label_right, size=size.small)
+
+// ─── UPDATE RESISTANCE ZONES ────────────────────────────────
+
+if array.size(r_boxes) > 0
+    for i = 0 to array.size(r_boxes) - 1
+        b      = array.get(r_boxes, i)
+        ztop   = array.get(r_tops, i)
+        zbot   = array.get(r_bots, i)
+        tcnt   = array.get(r_touches, i)
+        broken = array.get(r_broken, i)
+        box.set_right(b, bar_index + i_extend_bars)
+        in_zone = high >= zbot and low <= ztop
+        if in_zone and not broken
+            new_t = tcnt + 1
+            array.set(r_touches, i, new_t)
+            box.set_bgcolor(b, zone_color(new_t, true, false))
+            if i_show_touch
+                box.set_text(b, "R | " + str.tostring(new_t) + " | " + status_str(new_t))
+            upper_wick = high - body_high()
+            if i_alert_brk == false and i_show_rej and upper_wick > atr14 * 0.5
+                alert("MSNR: Bearish Rejection at Resistance " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+        if not broken and close > ztop
+            array.set(r_broken, i, true)
+            box.set_bgcolor(b, i_col_broken)
+            box.set_border_color(b, color.new(color.gray, 50))
+            if i_show_touch
+                box.set_text(b, "R | BROKEN | Now Support")
+            if i_alert_brk
+                alert("MSNR: Resistance BROKEN at " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+        if broken and low <= ztop and low >= zbot
+            if i_alert_ret
+                alert("MSNR: Break-Retest on broken Resistance at " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+
+// ─── UPDATE SUPPORT ZONES ───────────────────────────────────
+
+if array.size(s_boxes) > 0
+    for i = 0 to array.size(s_boxes) - 1
+        b      = array.get(s_boxes, i)
+        ztop   = array.get(s_tops, i)
+        zbot   = array.get(s_bots, i)
+        tcnt   = array.get(s_touches, i)
+        broken = array.get(s_broken, i)
+        box.set_right(b, bar_index + i_extend_bars)
+        in_zone = high >= zbot and low <= ztop
+        if in_zone and not broken
+            new_t = tcnt + 1
+            array.set(s_touches, i, new_t)
+            box.set_bgcolor(b, zone_color(new_t, false, false))
+            if i_show_touch
+                box.set_text(b, "S | " + str.tostring(new_t) + " | " + status_str(new_t))
+            lower_wick = body_low() - low
+            if i_alert_brk == false and i_show_rej and lower_wick > atr14 * 0.5
+                alert("MSNR: Bullish Rejection at Support " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+        if not broken and close < zbot
+            array.set(s_broken, i, true)
+            box.set_bgcolor(b, i_col_broken)
+            box.set_border_color(b, color.new(color.gray, 50))
+            if i_show_touch
+                box.set_text(b, "S | BROKEN | Now Resistance")
+            if i_alert_brk
+                alert("MSNR: Support BROKEN at " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+        if broken and high >= zbot and high <= ztop
+            if i_alert_ret
+                alert("MSNR: Break-Retest on broken Support at " + str.tostring(math.round((ztop+zbot)/2, 5)), alert.freq_once_per_bar)
+
+// ─── MULTI-TIMEFRAME HTF LEVELS ─────────────────────────────
+
+htf_high  = request.security(syminfo.tickerid, i_htf, high[1],  lookahead=barmerge.lookahead_on)
+htf_low   = request.security(syminfo.tickerid, i_htf, low[1],   lookahead=barmerge.lookahead_on)
+htf_close = request.security(syminfo.tickerid, i_htf, close[1], lookahead=barmerge.lookahead_on)
+htf_mid   = (htf_high + htf_low) / 2.0
+
+var line htf_r_line = na
+var line htf_s_line = na
+var line htf_m_line = na
+var label htf_r_lbl = na
+var label htf_s_lbl = na
+var label htf_m_lbl = na
+
+if i_show_htf and barstate.islast
+    line.delete(htf_r_line)
+    line.delete(htf_s_line)
+    line.delete(htf_m_line)
+    label.delete(htf_r_lbl)
+    label.delete(htf_s_lbl)
+    label.delete(htf_m_lbl)
+    htf_r_line := line.new(bar_index - 300, htf_high, bar_index + i_extend_bars, htf_high, color=color.new(color.yellow, 15), width=i_htf_width, style=line.style_dashed)
+    htf_s_line := line.new(bar_index - 300, htf_low,  bar_index + i_extend_bars, htf_low,  color=color.new(color.yellow, 15), width=i_htf_width, style=line.style_dashed)
+    htf_m_line := line.new(bar_index - 300, htf_mid,  bar_index + i_extend_bars, htf_mid,  color=color.new(color.yellow, 60), width=1, style=line.style_dotted)
+    if i_show_labels
+        htf_r_lbl := label.new(bar_index + i_extend_bars, htf_high, "HTF-R (" + i_htf + ") " + str.tostring(htf_high, format.mintick), color=color.new(color.yellow, 20), textcolor=color.black, style=label.style_label_left, size=size.small)
+        htf_s_lbl := label.new(bar_index + i_extend_bars, htf_low, "HTF-S (" + i_htf + ") " + str.tostring(htf_low, format.mintick), color=color.new(color.yellow, 20), textcolor=color.black, style=label.style_label_left, size=size.small)
+        htf_m_lbl := label.new(bar_index + i_extend_bars, htf_mid, "HTF-EQ " + str.tostring(htf_mid, format.mintick), color=color.new(color.yellow, 55), textcolor=color.black, style=label.style_label_left, size=size.tiny)
+
+// ─── CONFLUENCE ─────────────────────────────────────────────
+
+conf_res = false
+conf_sup = false
+
+if i_show_conf
+    if array.size(r_tops) > 0
+        for i = 0 to array.size(r_tops) - 1
+            if not array.get(r_broken, i)
+                if htf_high >= array.get(r_bots, i) and htf_high <= array.get(r_tops, i)
+                    conf_res := true
+    if array.size(s_tops) > 0
+        for i = 0 to array.size(s_tops) - 1
+            if not array.get(s_broken, i)
+                if htf_low >= array.get(s_bots, i) and htf_low <= array.get(s_tops, i)
+                    conf_sup := true
+
+// ─── ZONE PROXIMITY ─────────────────────────────────────────
+
+near_res = false
+near_sup = false
+
+if array.size(r_tops) > 0
+    for i = 0 to array.size(r_tops) - 1
+        if not array.get(r_broken, i)
+            if high >= array.get(r_bots, i) and low <= array.get(r_tops, i)
+                near_res := true
+
+if array.size(s_tops) > 0
+    for i = 0 to array.size(s_tops) - 1
+        if not array.get(s_broken, i)
+            if high >= array.get(s_bots, i) and low <= array.get(s_tops, i)
+                near_sup := true
+
+// ─── BREAK SIGNALS ──────────────────────────────────────────
+
+res_brk = false
+sup_brk = false
+
+if array.size(r_tops) > 0
+    for i = 0 to array.size(r_tops) - 1
+        if not array.get(r_broken, i)
+            if close[1] < array.get(r_tops, i) and close > array.get(r_tops, i)
+                res_brk := true
+
+if array.size(s_bots) > 0
+    for i = 0 to array.size(s_bots) - 1
+        if not array.get(s_broken, i)
+            if close[1] > array.get(s_bots, i) and close < array.get(s_bots, i)
+                sup_brk := true
+
+plotshape(i_show_brk and res_brk, title="Resistance Break", style=shape.triangleup,   location=location.belowbar, color=color.lime, size=size.normal, text="BRK", textcolor=color.white)
+plotshape(i_show_brk and sup_brk, title="Support Break",    style=shape.triangledown, location=location.abovebar, color=color.red,  size=size.normal, text="BRK", textcolor=color.white)
+plotshape(i_show_conf and conf_res, title="HTF Conf Res", style=shape.diamond, location=location.abovebar, color=color.new(color.yellow, 30), size=size.tiny, text="CONF")
+plotshape(i_show_conf and conf_sup, title="HTF Conf Sup", style=shape.diamond, location=location.belowbar, color=color.new(color.yellow, 30), size=size.tiny, text="CONF")
+
+// ─── REJECTION SIGNALS ──────────────────────────────────────
+
+candle_rng = high - low
+body_rng   = math.abs(close - open)
+up_wick    = high - math.max(open, close)
+dn_wick    = math.min(open, close) - low
+is_star    = up_wick >= body_rng * 2 and dn_wick <= body_rng * 0.5 and candle_rng > atr14 * 0.5
+is_hammer  = dn_wick >= body_rng * 2 and up_wick <= body_rng * 0.5 and candle_rng > atr14 * 0.5
+
+plotshape(i_show_rej and is_star   and near_res, title="Shooting Star", style=shape.arrowdown, location=location.abovebar, color=color.red,  size=size.small, text="REJECT")
+plotshape(i_show_rej and is_hammer and near_sup, title="Hammer",        style=shape.arrowup,   location=location.belowbar, color=color.lime, size=size.small, text="REJECT")
+
+// ─── BACKGROUND CONTEXT ─────────────────────────────────────
+
+bgcolor(i_show_bias and near_res ? color.new(color.red,   93) : na, title="Near Resistance BG")
+bgcolor(i_show_bias and near_sup ? color.new(color.green, 93) : na, title="Near Support BG")
+
+// ─── DASHBOARD TABLE ────────────────────────────────────────
+
+var table dash = table.new(position.top_right, 2, 18, bgcolor=color.new(color.black, 78), border_color=color.new(color.white, 55), border_width=1, frame_color=color.new(color.white, 80), frame_width=1)
+
+if i_show_table and barstate.islast
+    // Header
+    table.cell(dash, 0, 0, "MSNR DASHBOARD",    text_color=color.yellow, text_size=size.normal, bgcolor=color.new(color.navy, 45))
+    table.cell(dash, 1, 0, "v4.0",              text_color=color.yellow, text_size=size.small,  bgcolor=color.new(color.navy, 45))
+
+    // ─ STORYLINE SECTION ─
+    table.cell(dash, 0, 1, "=== STORYLINE ===",  text_color=color.aqua, text_size=size.tiny)
+    table.cell(dash, 1, 1, "",                   text_color=color.aqua, text_size=size.tiny)
+
+    struct_str = trend == 1 ? "BULLISH (HH+HL)" : trend == -1 ? "BEARISH (LH+LL)" : "FORMING..."
+    struct_col = trend == 1 ? color.lime : trend == -1 ? color.red : color.gray
+    table.cell(dash, 0, 2, "Market Structure",   text_color=color.white, text_size=size.tiny)
+    table.cell(dash, 1, 2, struct_str,           text_color=struct_col,  text_size=size.small)
+
+    bos_str = bos_bull ? "BOS UP (cont.)" : bos_bear ? "BOS DOWN (cont.)" : "No BOS"
+    bos_col = bos_bull ? color.lime : bos_bear ? color.red : color.gray
+    table.cell(dash, 0, 3, "BOS",                text_color=color.aqua, text_size=size.tiny)
+    table.cell(dash, 1, 3, bos_str,              text_color=bos_col,    text_size=size.small)
+
+    choch_str = choch_bull ? "CHOCH UP (reversal?)" : choch_bear ? "CHOCH DOWN (reversal?)" : "No CHOCH"
+    choch_col = choch_bull ? color.lime : choch_bear ? color.red : color.gray
+    table.cell(dash, 0, 4, "CHOCH",              text_color=color.fuchsia, text_size=size.tiny)
+    table.cell(dash, 1, 4, choch_str,            text_color=choch_col,     text_size=size.small)
+
+    sweep_str = sweep_bull ? "BULLISH SWEEP" : sweep_bear ? "BEARISH SWEEP" : "No Sweep"
+    sweep_col = sweep_bull ? color.lime : sweep_bear ? color.red : color.gray
+    table.cell(dash, 0, 5, "Sweep / Raid",       text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 1, 5, sweep_str,            text_color=sweep_col,    text_size=size.small)
+
+    eq_price    = not na(last_ph1) and not na(last_pl1) ? (last_ph1 + last_pl1) / 2.0 : close
+    is_premium  = close > eq_price
+    premium_str = is_premium ? "PREMIUM (sell area)" : "DISCOUNT (buy area)"
+    premium_col = is_premium ? color.red : color.lime
+    table.cell(dash, 0, 6, "Price Position",     text_color=color.white, text_size=size.tiny)
+    table.cell(dash, 1, 6, premium_str,          text_color=premium_col, text_size=size.small)
+
+    // ─ ZONES SECTION ─
+    act_r = 0
+    if array.size(r_broken) > 0
+        for i = 0 to array.size(r_broken) - 1
+            if not array.get(r_broken, i)
+                act_r += 1
+    act_s = 0
+    if array.size(s_broken) > 0
+        for i = 0 to array.size(s_broken) - 1
+            if not array.get(s_broken, i)
+                act_s += 1
+    brk_total = array.size(r_broken) - act_r + array.size(s_broken) - act_s
+
+    table.cell(dash, 0, 7,  "=== ZONES ===",       text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 7,  "",                     text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 0, 8,  "Resistance (active)",  text_color=color.red,   text_size=size.tiny)
+    table.cell(dash, 1, 8,  str.tostring(act_r),    text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 9,  "Support (active)",     text_color=color.green, text_size=size.tiny)
+    table.cell(dash, 1, 9,  str.tostring(act_s),    text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 10, "Broken (total)",       text_color=color.gray,  text_size=size.tiny)
+    table.cell(dash, 1, 10, str.tostring(brk_total),text_color=color.silver,text_size=size.small)
+    conf_str = conf_res ? "RES zone" : conf_sup ? "SUP zone" : "None"
+    conf_col = conf_res or conf_sup ? color.yellow : color.gray
+    table.cell(dash, 0, 11, "HTF Confluence",       text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 1, 11, conf_str,               text_color=conf_col,     text_size=size.small)
+
+    // ─ HTF SECTION ─
+    table.cell(dash, 0, 12, "=== HTF: " + i_htf + " ===", text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 1, 12, "",                             text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 0, 13, "HTF Resistance",               text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 1, 13, str.tostring(htf_high, format.mintick), text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 14, "HTF Support",                  text_color=color.yellow, text_size=size.tiny)
+    table.cell(dash, 1, 14, str.tostring(htf_low, format.mintick),  text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 15, "HTF Midpoint (EQ)",            text_color=color.new(color.yellow, 40), text_size=size.tiny)
+    table.cell(dash, 1, 15, str.tostring(htf_mid, format.mintick),  text_color=color.new(color.white, 30), text_size=size.small)
+
+    // ─ MARKET SECTION ─
+    table.cell(dash, 0, 16, "ATR(14)",  text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 16, str.tostring(atr14, format.mintick), text_color=color.white, text_size=size.small)
+
+    ctx_str = near_res ? "In RESISTANCE Zone" : near_sup ? "In SUPPORT Zone" : "Between Zones"
+    ctx_col = near_res ? color.red : near_sup ? color.lime : color.gray
+    table.cell(dash, 0, 17, "Context",  text_color=color.white, text_size=size.tiny)
+    table.cell(dash, 1, 17, ctx_str,    text_color=ctx_col,     text_size=size.tiny)
+
+// ─── ALERT CONDITIONS ───────────────────────────────────────
+
+alertcondition(res_brk,               title="MSNR - Resistance Break",       message="MSNR: Resistance BROKEN on {{ticker}} ({{interval}})")
+alertcondition(sup_brk,               title="MSNR - Support Break",          message="MSNR: Support BROKEN on {{ticker}} ({{interval}})")
+alertcondition(is_star and near_res,  title="MSNR - Bearish Rejection",      message="MSNR: Bearish Rejection at Resistance on {{ticker}} ({{interval}})")
+alertcondition(is_hammer and near_sup,title="MSNR - Bullish Rejection",      message="MSNR: Bullish Rejection at Support on {{ticker}} ({{interval}})")
+alertcondition(conf_res or conf_sup,  title="MSNR - HTF Confluence",         message="MSNR: HTF Confluence zone on {{ticker}} ({{interval}})")
+alertcondition(bos_bull or bos_bear,  title="MSNR - Break of Structure",     message="MSNR: BOS detected on {{ticker}} ({{interval}})")
+alertcondition(choch_bull or choch_bear, title="MSNR - Change of Character", message="MSNR: CHOCH detected on {{ticker}} - Trend may be reversing!")
+alertcondition(sweep_bull or sweep_bear, title="MSNR - Liquidity Sweep",     message="MSNR: Liquidity Sweep/Raid on {{ticker}} - Watch for reversal!")
