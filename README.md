@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="assets/jafsoon_wolf.png" alt="Jafsoon Wolf" width="300" style="border-radius: 10px; margin-bottom: 20px;" />
   <h1>⧗ The 3 Clocks: Contrarian Edge</h1>
   <p><strong>Advanced Live Market Scanner for Crypto, Forex, and Gold</strong></p>
   
