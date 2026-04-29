@@ -1,79 +1,101 @@
-# ⧗ The 3 Clocks — Contrarian Edge
-### Live Market Scanner · Crypto + Forex + Gold
+<div align="center">
+  <h1>⧗ The 3 Clocks: Contrarian Edge</h1>
+  <p><strong>Advanced Live Market Scanner for Crypto, Forex, and Gold</strong></p>
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Node.js](https://img.shields.io/badge/Node.js-Backend-green.svg)](https://nodejs.org/)
+  [![Express](https://img.shields.io/badge/Express-API-blue.svg)](https://expressjs.com/)
+  [![Vanilla JS](https://img.shields.io/badge/Vanilla_JS-Frontend-yellow.svg)]()
+</div>
 
-A proprietary institutional-grade market scanner built on **The 3 Clocks** contrarian trading strategy. Scans **24 pairs × 5 timeframes = 120 combinations** in real-time and identifies high-probability fakeout setups with calculated Entry, Stop Loss, and Take Profit levels.
+<hr>
+
+## 📖 Overview
+
+**The 3 Clocks: Contrarian Edge** is a proprietary, institutional-grade market scanner built upon a highly effective contrarian trading strategy. The scanner simultaneously monitors **24 market pairs** across **5 timeframes**, resulting in **120 real-time combinations**. It algorithmically identifies high-probability "fakeout" setups and calculates precise Entry, Stop Loss, and Take Profit levels to provide actionable trading intelligence.
 
 ---
 
 ## 🧠 Strategy: The 3 Clocks
 
-| Clock | Name | Logic |
-|-------|------|-------|
-| ⧗ Clock 1 | **Market Clock** | Volatility compression — ATR squeeze, Bollinger Band squeeze |
-| ◷ Clock 2 | **Institutional Clock** | London Open / NY Open session filter |
-| ⚡ Clock 3 | **Psychological Clock** | Fakeout detection — retail trapped, smart money reverses |
+The system operates on three foundational "clocks" (conditions). Each clock triggered adds to the **Expected Value (EV) Score**, maxing out at 4/4. Higher EV indicates greater conviction.
 
-Each clock that fires adds **+1 EV Score** (max 4/4). The higher the EV, the higher the conviction.
-
----
-
-## 📡 Data Sources
-
-| Market | Source | Pairs |
-|--------|--------|-------|
-| **Crypto** | Binance Public API (no key needed) | BTC, ETH, BNB, SOL, XRP, ADA, DOGE, LINK, AVAX, DOT, MATIC, LTC, UNI, ATOM, NEAR |
-| **Forex** | Yahoo Finance (no key needed) | EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CAD, USD/CHF, NZD/USD, EUR/GBP |
-| **Gold** | Yahoo Finance (GC=F) | XAU/USD |
-
-**Timeframes:** M5 · M15 · H1 · H4 · D1
+| Indicator | Name | Core Logic & Focus |
+| :---: | :--- | :--- |
+| **⧗ Clock 1** | **Market Clock** | *Volatility Compression* — Detects ATR and Bollinger Band squeezes to anticipate breakouts. |
+| **◷ Clock 2** | **Institutional Clock** | *Session Timing* — Filters for high-liquidity windows (London & New York Open). |
+| **⚡ Clock 3** | **Psychological Clock** | *Fakeout Detection* — Identifies retail traps where smart money reverses the market. |
 
 ---
 
-## 🚀 Quick Start
+## 📡 Supported Markets & Data Sources
+
+We utilize robust, free-tier APIs to aggregate real-time market data without requiring API keys.
+
+| Asset Class | Primary Source | Supported Pairs |
+| :--- | :--- | :--- |
+| 🪙 **Crypto** | Binance Public API | `BTC`, `ETH`, `BNB`, `SOL`, `XRP`, `ADA`, `DOGE`, `LINK`, `AVAX`, `DOT`, `MATIC`, `LTC`, `UNI`, `ATOM`, `NEAR` |
+| 💱 **Forex** | Yahoo Finance | `EUR/USD`, `GBP/USD`, `USD/JPY`, `AUD/USD`, `USD/CAD`, `USD/CHF`, `NZD/USD`, `EUR/GBP` |
+| 🥇 **Gold** | Yahoo Finance | `XAU/USD` (GC=F) |
+
+**Monitored Timeframes:** `M5` · `M15` · `H1` · `H4` · `D1`
+
+---
+
+## 🚀 Quick Start Guide
+
+Follow these steps to deploy the scanner locally.
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v16 or higher recommended)
+- NPM (Node Package Manager)
+
+### Installation & Execution
 
 ```bash
+# Navigate to the scanner directory
 cd MarketScanner
+
+# Install required dependencies
 npm install
+
+# Start the local server
 node server.js
 ```
 
-Open **http://localhost:3001** in your browser, then click **SCAN MARKET**.
+Once the server is running, navigate to `http://localhost:3001` in your web browser and click the **SCAN MARKET** button to initiate live tracking.
 
 ---
 
 ## 🖥️ Dashboard Features
 
-- 📈 **Live price ticker** — all pairs scrolling in real-time (crypto + forex)
-- 🧮 **EV Score meter** — visual 1–4 bar showing setup quality
-- 🏷️ **FOREX / CRYPTO badges** — instantly see which market
-- 🔍 **Filters** — by direction (Bull/Bear), source (Forex/Crypto), EV score, timeframe
-- 🔄 **Auto-refresh** — scans every 5 minutes automatically
-- 📋 **Setup detail modal** — full breakdown with reasons and risk warnings
+- 📈 **Live Price Ticker:** A continuous, real-time scrolling marquee of all monitored Crypto and Forex pairs.
+- 🧮 **EV Score Meter:** Visual indicator (1–4 bars) evaluating the quality and conviction of each setup.
+- 🏷️ **Market Badges:** Instant visual categorization (FOREX / CRYPTO / METALS).
+- 🔍 **Advanced Filtering:** Sort setups by Direction (Bull/Bear), Asset Class, EV Score, or Timeframe.
+- 🔄 **Automated Scans:** Built-in auto-refresh executing full market scans every 5 minutes.
+- 📋 **Detailed Insights:** Deep-dive modal for each setup outlining logic, entry reasons, and risk parameters.
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Structure
 
-```
-MSNRCAG/
+```text
+ContraryEdge/
 ├── MarketScanner/
-│   ├── server.js          # Node.js/Express backend scanner
-│   ├── package.json
-│   └── public/
-│       ├── index.html     # Dashboard UI
-│       ├── style.css      # Dark theme styles
-│       └── app.js         # Frontend logic
-├── MSNR_Indicator.pine            # TradingView Pine Script — MSNR indicator
-├── ThreeClocks_ContraryEdge.pine  # TradingView Pine Script — 3 Clocks indicator
-└── README.md
+│   ├── public/
+│   │   ├── index.html     # Frontend Dashboard UI
+│   │   ├── style.css      # Custom Dark Theme Styles
+│   │   └── app.js         # Client-side Scanning Logic
+│   ├── package.json       # Project Dependencies
+│   └── server.js          # Node.js/Express Backend Server
+├── MSNR_Indicator.pine            # TradingView MSNR Indicator Script
+├── ThreeClocks_ContraryEdge.pine  # TradingView 3 Clocks Indicator Script
+└── README.md              # Project Documentation (You are here)
 ```
 
 ---
 
-## ⚠️ Disclaimer
+## ⚠️ Disclaimer & Risk Warning
 
-This tool is for **educational and research purposes only**. It does not constitute financial advice. Always use proper risk management — never risk more than 1–2% of your account per trade.
-
----
-
-*Built with Node.js · Express · Binance API · Yahoo Finance · Vanilla JS*
+This software and the strategies enclosed are provided strictly for **educational and research purposes**. It does not constitute financial, investment, or trading advice. Past performance is not indicative of future results. Always practice strict risk management protocols and **never risk more than 1–2% of your total account equity per trade.**
