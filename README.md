@@ -82,7 +82,7 @@ Once the server is running, navigate to `http://localhost:3001` in your web brow
 ## 📁 Repository Structure
 
 ```text
-wolf-ThreeClocks/
+Wolf-ThreeClocksEdge/
 ├── MarketScanner/
 │   ├── public/
 │   │   ├── index.html     # Frontend Dashboard UI
